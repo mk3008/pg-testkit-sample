@@ -1,14 +1,13 @@
 import path from 'path';
 import { Client } from 'pg';
-import type { QueryResultRow } from 'pg';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PgTestkitClient } from '@rawsql-ts/pg-testkit';
 import { createPgTestkitClient } from '@rawsql-ts/pg-testkit';
-
 import { UserRepository } from '../src/users.js';
 import type { DatabaseClient } from '../src/users.js';
+import type { QueryResultRow } from 'pg';
 
 const ddlPath = path.resolve(__dirname, '../ddl/schemas');
 
@@ -66,12 +65,11 @@ function buildTestkit() {
 class TestkitDatabaseClient implements DatabaseClient {
   constructor(private readonly client: PgTestkitClient) {}
 
-  async query<T>(sql: string, values?: readonly unknown[]) {
+  async query<T = unknown>(sql: string, values?: readonly unknown[]) {
     // Convert the read-only tuple into a mutable array for pg-testkit.
     const params = values ? [...values] : undefined;
-    // Delegate to the pg-testkit client while preserving the typed row collection.
     const result = await this.client.query<QueryResultRow>(sql, params);
-    // Only the rows are consumed by the repository, so expose the narrowed shape.
+    // Cast the proxy rows to T so callers still receive the DTO they requested.
     return { rows: result.rows as T[] };
   }
 }
@@ -95,7 +93,7 @@ describe('UserRepository with pg-testkit', () => {
     }
   });
 
-  it('reads a seeded row via tableRows without touching a real database', async () => {
+  it('reads a seeded row via tableRows without creating or modifying physical tables', async () => {
     // Build a fresh client so every test gets an isolated fixture snapshot and connection.
     const testkit = buildTestkit();
 
