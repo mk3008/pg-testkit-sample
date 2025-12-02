@@ -26,21 +26,24 @@
   "homepage": "https://github.com/mk3008/pg-testkit-sample#readme",
   "description": "Demo showing how to exercise @rawsql-ts/pg-testkit without a live database.",
   "dependencies": {
-    "@rawsql-ts/pg-testkit": "file:./rawsql-ts-pg-testkit-0.1.1.tgz",
-    "@rawsql-ts/testkit-core": "file:./rawsql-ts-testkit-core-0.1.0.tgz",
+    "@rawsql-ts/pg-testkit": "^0.1.1",
+    "@rawsql-ts/testkit-core": "^0.1.0",
     "pg": "^8.13.1",
-    "rawsql-ts": "file:./rawsql-ts-0.12.1.tgz"
+    "rawsql-ts": "^0.12.1"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^10.16.0",
     "@types/node": "^22.13.10",
     "@types/pg": "^8.15.6",
     "typescript": "^5.8.2",
-    "vitest": "^4.0.7"
+    "vitest": "^4.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "eslint": "^9.8.0"
   },
   "overrides": {
-    "@rawsql-ts/pg-testkit": "file:./rawsql-ts-pg-testkit-0.1.1.tgz",
-    "@rawsql-ts/testkit-core": "file:./rawsql-ts-testkit-core-0.1.0.tgz",
-    "rawsql-ts": "file:./rawsql-ts-0.12.1.tgz"
+    "@rawsql-ts/pg-testkit": "^0.1.1",
+    "@rawsql-ts/testkit-core": "^0.1.0",
+    "rawsql-ts": "^0.12.1"
   }
 }

@@ -1,46 +1,57 @@
 import path from 'path';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Client } from 'pg';
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPgTestkitClient } from '@rawsql-ts/pg-testkit';
 
-import { createUser, findUserByEmail } from '../src/users';
+import { UserRepository } from '../src/users.js';
 
 const ddlPath = path.resolve(__dirname, '../ddl/schemas');
+
+const seededRows = [
+  {
+    id: 1,
+    email: 'alice@example.com',
+    active: true,
+    created_at: '2023-01-01 10:00:00'
+  }
+];
 
 const tableRows = [
   {
     tableName: 'users',
-    rows: [
-      {
-        id: 1,
-        email: 'alice@example.com',
-        active: true,
-        created_at: '2023-01-01 10:00:00'
-      }
-    ]
+    rows: seededRows
   }
 ];
 
-let container: StartedPostgreSqlContainer | null = null;
-let client: Client | null = null;
+let container: StartedPostgreSqlContainer | undefined;
+let connectionUri: string | undefined;
 
 beforeAll(async () => {
-  container = await new PostgreSqlContainer('postgres:16-alpine').start();
-  client = new Client({ connectionString: container.getConnectionUri() });
-  await client.connect();
-}, 60000); // Increase timeout for container startup
-
-afterAll(async () => {
-  if (client) await client.end();
-  if (container) await container.stop();
+  // Launch a disposable Postgres instance so pg-testkit rewrites run against a real engine.
+  container = await new PostgreSqlContainer().start();
+  connectionUri = container.getConnectionUri();
 });
 
-function buildTestClient() {
-  if (!client) throw new Error('Postgres client not initialized');
+afterAll(async () => {
+  // Stop the container to clean up the test resources.
+  await container?.stop();
+});
 
+function buildTestkit() {
+  // Guard against building the client before the container provides a connection URI.
+  if (!connectionUri) {
+    throw new Error('Postgres container has not been initialized');
+  }
+
+  // Provide pg-testkit with a real Client factory so the rewrite pipeline can exercise the engine.
   return createPgTestkitClient({
-    connectionFactory: () => client!,
+    connectionFactory: async () => {
+      const client = new Client({ connectionString: connectionUri });
+      await client.connect();
+      return client;
+    },
     tableRows,
     ddl: {
       directories: [ddlPath],
@@ -51,28 +62,39 @@ function buildTestClient() {
 
 describe('UserRepository with pg-testkit', () => {
   it('creates a user and returns both defaults and supplied fields', async () => {
-    const testkit = buildTestClient();
+    // Build a fresh client so every test gets an isolated fixture snapshot and connection.
+    const testkit = buildTestkit();
 
-    const result = await createUser(testkit, { email: 'bob@example.com', active: false });
+    try {
+      const repository = new UserRepository(testkit);
+      const result = await repository.createUser({ email: 'bob@example.com', active: false });
 
-    expect(result).toMatchObject({
-      email: 'bob@example.com',
-      active: false
-    });
-    expect(result.createdAt).toEqual(expect.any(String));
+      expect(result).toMatchObject({
+        email: 'bob@example.com',
+        active: false
+      });
+      expect(result.createdAt).toEqual(expect.any(String));
+    } finally {
+      await testkit.close();
+    }
   });
 
   it('reads a seeded row via tableRows without touching a real database', async () => {
-    const testkit = buildTestClient();
+    // Build a fresh client so every test gets an isolated fixture snapshot and connection.
+    const testkit = buildTestkit();
 
-    const seeded = await findUserByEmail(testkit, 'alice@example.com');
+    try {
+      const repository = new UserRepository(testkit);
+      const seeded = await repository.findUserByEmail('alice@example.com');
 
-    expect(seeded).toEqual({
-      id: 1,
-      email: 'alice@example.com',
-      active: true,
-      createdAt: expect.any(String)
-    });
+      expect(seeded).toEqual({
+        id: 1,
+        email: 'alice@example.com',
+        active: true,
+        createdAt: expect.any(String)
+      });
+    } finally {
+      await testkit.close();
+    }
   });
 });
-
