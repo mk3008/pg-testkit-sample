@@ -32,7 +32,7 @@ let connectionUri: string | undefined;
 
 beforeAll(async () => {
   // Launch a disposable Postgres instance so pg-testkit rewrites run against a real engine.
-  container = await new PostgreSqlContainer().start();
+  container = await new PostgreSqlContainer('postgres:17-alpine').start();
   connectionUri = container.getConnectionUri();
 });
 
